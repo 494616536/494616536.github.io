@@ -60,10 +60,9 @@
 			target.val("");
 		});
 		$("#go4").on("click", function() {
-			var patt = new RegExp($("#reg").val());
-			var arr=$("#word").val().split(/(,|，|\s+)/);
+			var arr=$("#word").val().split(/,|，|\s+/);
 			arr.forEach(function(item) {
-				if(item.match(/(,|，)/))return;
+				if(item.match(/,|，|\s+/))return;
 				target.val(function(i,o){
 					item+="\",dto.get"+item.toLowerCase().replace(/(^|\s+)\w/g,function(s){
  							return s.toUpperCase();
