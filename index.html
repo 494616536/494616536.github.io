@@ -1,0 +1,77 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>替换工具</title>
+<link rel="stylesheet"
+	href="https://cdn.bootcss.com/bootstrap/3.3.7/css/bootstrap.min.css">
+<script src="https://cdn.bootcss.com/jquery/2.2.4/jquery.min.js"></script>
+<script
+	src="https://cdn.bootcss.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+</head>
+<body>
+	<p class="alert alert-info">请输入baseCode</p>
+	<div>
+		<textarea id="textSour" class="form-control"
+			placeholder="在此输入baseCode"></textarea>
+	</div>
+	<div class="input-group">
+		<span class="input-group-addon">替换前正则</span> <input id="reg"
+			class="form-control" placeholder="在此输入要替换的字符或正则表达式">
+	</div>
+	<div>
+		<div class="input-group">
+			<span class="input-group-addon">替换为</span>
+			<input id="word" class="form-control" placeholder="在此输入需要的字段用逗号分隔">
+			<span class="input-group-btn">
+				<button class="btn btn-default" id="go">Go!</button>
+			</span>
+		</div>
+		<div class="btn-group">
+			<button class="btn btn-default" id="go2">第二次替换</button>
+			<button class="btn btn-default" id="go3">清空</button>
+			<button class="btn btn-default" id="go4">自定义</button>
+		</div>
+		<div>
+			<textarea id="result" class="form-control" placeholder="result" style="height:300px"></textarea>
+		</div>
+	</div>
+	<script>
+			target=$("#result");
+			sourse=$("#textSour").val();
+		$("#go").on("click", function() {
+			var arr=$("#word").val().split(/(,|，)/);
+			var patt = new RegExp($("#reg").val(),"g");
+			arr.forEach(function(item) {
+				if(item.match(/(,|，)/))return;
+				target.append(sourse.replace(patt, item)).append("\n");
+			});
+		});
+		$("#go2").on("click", function() {
+			var patt = new RegExp($("#reg").val());
+			var arr=$("#word").val().split(/(,|，)/);
+			arr.forEach(function(item) {
+				if(item.match(/(,|，)/))return;
+				target.val(function(i,o){
+				return o.replace(patt, item);});
+			});
+		});
+		$("#go3").on("click", function() {
+			target.val("");
+		});
+		$("#go4").on("click", function() {
+			var patt = new RegExp($("#reg").val());
+			var arr=$("#word").val().split(/(,|，|\s+)/);
+			arr.forEach(function(item) {
+				if(item.match(/(,|，)/))return;
+				target.val(function(i,o){
+					item+="\",dto.get"+item.toLowerCase().replace(/(^|\s+)\w/g,function(s){
+ 							return s.toUpperCase();
+ 							})+"());\n";
+				return o+"po.set(\""+item;
+				});
+			});
+		});
+	</script>
+</body>
+</html>
