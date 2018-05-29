@@ -1,0 +1,147 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>替换工具</title>
+<link rel="stylesheet"
+	href="https://cdn.bootcss.com/bootstrap/3.3.7/css/bootstrap.min.css">
+<script src="https://cdn.bootcss.com/jquery/2.2.4/jquery.min.js"></script>
+<script
+	src="https://cdn.bootcss.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+</head>
+<body>
+	<div class="bg-info text-center"><p style="padding:15px">个人替换工具<p>
+	<div> 
+		<textarea style="height:200px" id="textSour" class="form-control"
+			placeholder="在此输入baseCode"></textarea>
+	</div>
+	<div class="input-group">
+		<span class="input-group-addon">替换前正则</span> <input id="reg"
+			class="form-control" placeholder="在此输入要替换的字符或正则表达式">
+	</div>
+	<div>
+		<div class="input-group">
+			<span class="input-group-addon">替换的字段</span>
+			<input id="word" class="form-control" placeholder="在此输入需要的字段用逗号分隔">
+			<span class="input-group-btn">
+				<button class="btn btn-default" id="go">Go!</button>
+			</span>
+		</div>
+		<div class="btn-group">
+			<button class="btn btn-default" id="go2" data-toggle="tooltip" title="用字段逐个替换下面的内容中的正则,下面没有内容就是上面的逐个删除">逐个替换</button>
+			<button class="btn btn-default" id="go3" data-toggle="tooltip" title="清除下面内容">清除</button>
+			<button class="btn btn-default" id="go4" data-toggle="tooltip" title="把字段格式化方便替换">替换字段中的空字符</button>
+			<button class="btn btn-default" id="go5" data-toggle="tooltip" title="把字段格式化database插入">把字段格式化database插入</button>
+			<button class="btn btn-default" id="go6" data-toggle="tooltip" title="sql格式化">appendSQL</button>
+		</div>
+		<div>
+			<pre id="result" class="pre-scrollable" style="height:300px"></pre>
+		</div>
+	</div>
+</div>
+	<script>
+	function selectText(element) {
+        var text = document.getElementById(element);
+        if (document.body.createTextRange) {
+            var range = document.body.createTextRange();
+            range.moveToElementText(text);
+            range.select();
+        } else if (window.getSelection) {
+            var selection = window.getSelection();
+            var range = document.createRange();
+            range.selectNodeContents(text);
+            selection.removeAllRanges();
+            selection.addRange(range);
+            /*if(selection.setBaseAndExtent){
+                selection.setBaseAndExtent(text, 0, text, 1);
+            }*/
+        } else {
+            alert("none");
+        }
+    }
+		$("#go").on("click", function(){
+			var arr=$("#word").val().split(/(,|，)/);
+			var patt = new RegExp($("#reg").val(),"g");
+			var target=$("#result");
+			console.log(arr);
+			arr.forEach(function(item) {
+				console.log(item);
+				if(item.match(/(,|，)/))return;
+				var str=$("#textSour").val();
+				var res=str.replace(patt, item);
+				console.log("result:"+res);
+				target.text(function(i,o){return o+res+"\n";});
+				});
+			selectText("result");
+		});
+		$("#go2").on("click", function() {
+			var patt = new RegExp($("#reg").val());
+			var arr=$("#word").val().split(/(,|，)/);
+			var target=$("#result");
+			console.log(arr);
+			arr.forEach(function(item) {
+				console.log(item);
+				if(item.match(/(,|，)/))return;
+				if(target.text())target.text(function(i,o){
+				return o.replace(patt, item);});
+				else $("#textSour").val(function(i,o){
+				return o.replace(item,"").replace(/,\s+/g,",").replace(/,+/g,",");});
+			});
+			selectText("result");
+		});
+		$("#go3").on("click", function() {
+			$("#result").empty();
+		});
+		$("#go4").on("click", function() {
+			$("#word").val(function(i,o){
+			var str=o.replace(/\s+|、|\|/g,",");
+			if($("#reg").val()!=""&&confirm("再次替换自定义正则？"))str=str.replace(new RegExp($("#reg").val(),"g"),",");
+			str=str.replace(/,+/g,",");
+			if(str.charAt(str.length-1)==','){
+			return str.substr(0,str.length-1);}
+			else return str;});
+		});
+		$("#go5").on("click", function() {
+			$("#textSour").val(function(i,o){
+				
+			var arr=o.split(/\n+/),res='';
+				for(i in arr){
+					res+='(\'';
+					var str=arr[i];
+					if(str){
+						var arr2=str.replace(/\s+|\||,/g,",").replace(/,+/,",").split(',');
+						for(j in arr2)if(arr2[j])res+=arr2[j]+'\',\'';
+						res=res.substring(0,res.lastIndexOf(',\''));
+						res+='),';
+					}
+				}
+			return res.substring(0,res.lastIndexOf(','));
+			});
+		});
+		$("#go6").on("click", function() {
+			$("#textSour").val(function(i,o){
+			var patt=/( FROM)|( WHERE)|( INNER JOIN)|( LEFT)|( RIGHT)|( HAVING)|( ORDER)|( LIMIT)|( GROUP)/ig;
+			o=o.replace(/\s+/g,' ').replace(patt,'\n$&');
+			var arr=o.split(/\n/),res='';console.log(arr);
+				for(let i=0;i<arr.length;i++){
+					if(arr[i].length>100){
+						console.log(i+": "+arr[i].length);
+						let index=arr[i].indexOf(',',50)!=-1?arr[i].indexOf(',',50):arr[i].indexOf(' ',50);
+						if(index!=-1){
+							let sub1=arr[i].substr(0,index);
+							let sub2=arr[i].substr(index);
+							arr.splice(i,1,sub1,sub2);
+						}
+					}
+				}
+				for(let str of arr){
+					console.log(str+"\n"+str.length);
+					res+='query.append("';
+					if(str)res+=str+'\\n");\n';
+				}
+			return res;
+			});
+		});
+	</script>
+</body>
+</html>
