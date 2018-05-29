@@ -31,7 +31,7 @@
 			<button class="btn btn-default" id="go2" data-toggle="tooltip" title="用字段逐个替换下面的内容中的正则,下面没有内容就是上面的逐个删除">逐个替换</button>
 			<button class="btn btn-default" id="go3" data-toggle="tooltip" title="清除下面内容">清除</button>
 			<button class="btn btn-default" id="go4" data-toggle="tooltip" title="把字段格式化方便替换">替换字段中的空字符</button>
-			<button class="btn btn-default" id="go5" data-toggle="tooltip" title="把字段格式化database插入">把字段格式化database插入</button>
+			<button class="btn btn-default" id="go5" data-toggle="tooltip" title="提取field和title">提取field和title</button>
 			<button class="btn btn-default" id="go6" data-toggle="tooltip" title="sql格式化">appendSQL</button>
 		</div>
 		<div>
@@ -101,22 +101,21 @@
 			return str.substr(0,str.length-1);}
 			else return str;});
 		});
-		$("#go5").on("click", function() {
-			$("#textSour").val(function(i,o){
-				
-			var arr=o.split(/\n+/),res='';
-				for(i in arr){
-					res+='(\'';
-					var str=arr[i];
-					if(str){
-						var arr2=str.replace(/\s+|\||,/g,",").replace(/,+/,",").split(',');
-						for(j in arr2)if(arr2[j])res+=arr2[j]+'\',\'';
-						res=res.substring(0,res.lastIndexOf(',\''));
-						res+='),';
-					}
-				}
-			return res.substring(0,res.lastIndexOf(','));
-			});
+		$("#go5").on("click", function(){
+			let src=$("#textSour").val();
+			let field=/.+?field.+?\"(\w+?)\"/ig;
+			let title=/.+?title.+?\"(.+?)\"/ig;
+// 			let patt=prompt("请选择pattern",1)==1?field:title;
+			let result,last='',str="exportColumnList.add(new ExcelExportColumn(\"PATT1\",\"PATT2\"));\n";
+			while((result=field.exec(src))!=null){
+				last+=str.replace(/PATT1/,result[1]);
+			}
+			while((result=title.exec(src))!=null){
+				last=last.replace(/PATT2/,result[1]);
+			}
+			$('#result').text(last);
+			selectText("result");
+			
 		});
 		$("#go6").on("click", function() {
 			$("#textSour").val(function(i,o){
