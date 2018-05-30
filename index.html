@@ -1,4 +1,5 @@
-﻿<!DOCTYPE html>
+﻿
+<!DOCTYPE html>
 <html>
 <head>
 <meta charset="utf-8">
@@ -107,7 +108,7 @@
 			let title=/.+?title.+?\"(.+?\")/i;
 // 			let patt=prompt("请选择pattern",1)==1?field:title;
 			let last='',str="exportColumnList.add(new ExcelExportColumn(\"PATT1\",\"PATT2\"));\n";
-			let dict="\",ExcelDataType.Dict",time="\",CommonConstants.SIMPLE_DATE_FORMAT";
+			let dict=",ExcelDataType.Dict",time=",CommonConstants.SIMPLE_DATE_FORMAT";
 			for(let item of src){
 				let res=item.match(field);
 				if(res&&res[1])
@@ -128,7 +129,7 @@
 		$("#go6").on("click", function() {
 			$("#textSour").val(function(i,o){
 			var patt=/( FROM)|( WHERE)|( INNER JOIN)|( LEFT)|( RIGHT)|( HAVING)|( ORDER)|( LIMIT)|( GROUP)/ig;
-			o=o.replace(/\s+/g,' ').replace(patt,'\n$&');
+			o=o.replace(/\s+/g,' ').toUpperCase().replace(patt,'\n$&');
 			var arr=o.split(/\n/),res='';console.log(arr);
 				for(let i=0;i<arr.length;i++){
 					if(arr[i].length>100){
