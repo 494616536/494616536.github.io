@@ -4,9 +4,9 @@
 <head>
 <meta charset="utf-8">
 <title>替换工具</title>
-<link rel="stylesheet" href="https://cdn.bootcss.com/bootstrap/3.3.7/css/bootstrap.min.css">
-<script src="https://cdn.bootcss.com/jquery/2.2.4/jquery.min.js"></script>
-<script src="https://cdn.bootcss.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+<link rel="stylesheet" href="https://cdn.bootcss.com/bootstrap/3.3.7/css/bootstrap.css">
+<script src="https://cdn.bootcss.com/jquery/1.12.4/jquery.js"></script>
+<script src="https://cdn.bootcss.com/bootstrap/3.3.7/js/bootstrap.js"></script>
 </head>
 <body>
 	<div class="bg-info text-center">
@@ -31,7 +31,7 @@
 				<button class="btn btn-default" id="go2" data-toggle="tooltip" title="用字段逐个替换下面的内容中的正则,下面没有内容就是上面的逐个删除">逐个替换</button>
 				<button class="btn btn-default" id="go3" data-toggle="tooltip" title="清除下面内容">清除</button>
 				<button class="btn btn-default" id="go4" data-toggle="tooltip" title="把字段格式化方便替换">替换字段中的空字符</button>
-				<button class="btn btn-default" id="go5" data-toggle="tooltip" title="提取field和title生成excel导出">提取field和title</button>
+				<button class="btn btn-default" id="go5" data-toggle="tooltip" title="提取field和title生成excel导出">生成excel导出</button>
 				<button class="btn btn-default" id="go6" data-toggle="tooltip" title="sql格式化">appendSQL</button>
 				<button class="btn btn-default" id="go7" data-toggle="tooltip" title="根据页面生成setPO">生成setPO</button>
 			</div>
@@ -150,20 +150,38 @@
 			return res;
 			});
 		});
+		var data={};
 		$("#go7").on("click", function(){
 			var src=$("#textSour").val(),lastIndex=src.indexOf("</form>");
 			var target=$("#result"),template='dataPO.set("field",map.get("name"))';
-			var item=lastIndex==-1?src:src.substr(0,lastIndex);
-				console.log(item);
+			if(/^SELECT/.test(src)){
+				var patt=/A.(\w+)[,\n]/g,item,arr=[];
+				while((item=patt.exec(src))!=null){
+					arr.push(item[1]);
+				}
+					arr=$.map(data,function(v,k){
+						return arr.indexOf(k)!=-1?null:v;
+					});
+				target.text(arr.join(';\n'));
+				return;
+			}
+			else{
+			var item=lastIndex==-1?src:src.substr(0,lastIndex),SQL='SELECT  ';
+				console.log(data);
 				var arr=item.split('\n'),name=/name=\W?(\w+)/,field=/data-fieldName=\W?(\w+)/;
 				for(let i in arr){
 					let tem=template,f=arr[i].match(field),n=arr[i].match(name);
 					if(n){
 						tem=tem.replace('field',f[1]);
 						tem=tem.replace('name',n[1]);
+						SQL+="A."+f[1]+",";
+						data[f[1]]=tem;
 						target.text(function(i,o){return o+tem+";\n";});
 					}
 				}
+			SQL=SQL.substr(0,SQL.length-1)+"\nFROM A";
+			$("#textSour").val(SQL);
+			}
 			selectText("result");
 		});
 	</script>
