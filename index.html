@@ -40,6 +40,26 @@
 			</div>
 		</div>
 	</div>
+	<form>
+		<div class="modal fade" id="myModal" tabindex="-1">
+			<div class="modal-dialog">
+				<div class="modal-content">
+					<div class="modal-header">
+						<button type="button" class="close" data-dismiss="modal" aria-hidden="true">×</button>
+						<h4 class="modal-title" id="myModalLabel">请选择不删除的字段</h4>
+					</div>
+					<div class="modal-body">
+						<ul id="liContainer" class="list-group">
+						</ul>
+					</div>
+					<div class="modal-footer">
+						<button type="button" class="btn btn-default" data-dismiss="modal">关闭</button>
+						<button type="button" id="saveBtn" class="btn btn-primary">确认</button>
+					</div>
+				</div>
+			</div>
+		</div>
+	</form>
 	<script>
 	function selectText(element) {
         var text = document.getElementById(element);
@@ -150,20 +170,52 @@
 			return res;
 			});
 		});
-		var data={};
+		var data={},liElm='<li class="list-group-item"><div class="input-group"><span class="input-group-addon">desc</span><input type="text" value="123" class="form-control"><span class="input-group-addon hide">保留</span></div></li>';
+		var target=$("#result"),template='dataPO.set("field",map.get("name"));';
+		$('#myModal').on('shown.bs.modal', function () {
+			var del=$(this).data('pageData').del;
+			$('#liContainer').empty();
+			$.each(del,function(n,f){
+			var $elm=$(liElm.replace("desc",n).replace('123',f)).appendTo('#liContainer');
+				$elm.on('dblclick',function(e){
+					$(this).find('span:last').toggleClass('hide');
+					var $input=$(this).find('input');
+					if($input.attr('name'))$input.removeAttr('name');
+					else $input.attr({name:n});
+				});
+			});
+			});
+		$('#saveBtn').click(function(){
+			var res=$('#myModal').data('pageData').res;
+			var arr=$(this).closest('form').serializeArray();
+			var end=$.map(res,function(f,n){
+				var tem=template;
+				tem=tem.replace('field',f);
+				tem=tem.replace('name',n);
+				return tem;
+			});
+			end=end.concat($.map(arr,function(v){
+				var tem=template;
+				tem=tem.replace('field',v.value);
+				tem=tem.replace('name',v.name);
+				return tem;
+			}));
+			target.text(end.join('\n'));
+			$('button[data-dismiss]').click();
+		});
 		$("#go7").on("click", function(){
 			var src=$("#textSour").val(),lastIndex=src.indexOf("</form>");
-			var target=$("#result"),template='dataPO.set("field",map.get("name"))';
 			if(/^SELECT/.test(src)){
-				var patt=/A.(\w+)[,\n]/g,item,arr=[];
+				var patt=/A.(\w+)[,\n]/g,item,arr=[],del={},res={};
 				while((item=patt.exec(src))!=null){
 					arr.push(item[1]);
 				}
-					arr=$.map(data,function(v,k){
-						return arr.indexOf(k)!=-1?null:v;
+				$.each(data,function(n,f){
+						if(arr.indexOf(f)==-1)del[n]=f;
+						else res[n]=f;
 					});
-				target.text(arr.join(';\n'));
-				return;
+				$('#myModal').data('pageData',{del:del,res:res});
+				$('#myModal').modal('show');
 			}
 			else{
 			var item=lastIndex==-1?src:src.substr(0,lastIndex),SQL='SELECT  ';
@@ -175,8 +227,8 @@
 						tem=tem.replace('field',f[1]);
 						tem=tem.replace('name',n[1]);
 						SQL+="A."+f[1]+",";
-						data[f[1]]=tem;
-						target.text(function(i,o){return o+tem+";\n";});
+						data[n[1]]=f[1];
+						target.text(function(i,o){return o+tem+"\n";});
 					}
 				}
 			SQL=SQL.substr(0,SQL.length-1)+"\nFROM A";
