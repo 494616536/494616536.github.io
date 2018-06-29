@@ -36,7 +36,7 @@
 				<button class="btn btn-default" id="go7" data-toggle="tooltip" title="根据页面生成setPO">生成setPO</button>
 			</div>
 			<div>
-				<pre id="result" class="pre-scrollable" style="height: 300px"></pre>
+				<textarea id="result" class="form-control" style="height: 300px"></textarea>
 			</div>
 		</div>
 	</div>
@@ -46,7 +46,7 @@
 				<div class="modal-content">
 					<div class="modal-header">
 						<button type="button" class="close" data-dismiss="modal" aria-hidden="true">×</button>
-						<h4 class="modal-title" id="myModalLabel">请选择不删除的字段</h4>
+						<h4 class="modal-title" id="myModalLabel">以下字段将会删除（双击保留）</h4>
 					</div>
 					<div class="modal-body">
 						<ul id="liContainer" class="list-group">
@@ -63,6 +63,10 @@
 	<script>
 	function selectText(element) {
         var text = document.getElementById(element);
+        if(text.tagName=="TEXTAREA"){
+        	text.select();
+        	return;
+        }
         if (document.body.createTextRange) {
             var range = document.body.createTextRange();
             range.moveToElementText(text);
@@ -91,7 +95,7 @@
 				var str=$("#textSour").val();
 				var res=str.replace(patt, item);
 				console.log("result:"+res);
-				target.text(function(i,o){return o+res+"\n";});
+				target.val(function(i,o){return o+res+"\n";});
 				});
 			selectText("result");
 		});
@@ -103,7 +107,7 @@
 			arr.forEach(function(item) {
 				console.log(item);
 				if(item.match(/(,|，)/))return;
-				if(target.text())target.text(function(i,o){
+				if(target.val())target.val(function(i,o){
 				return o.replace(patt, item);});
 				else $("#textSour").val(function(i,o){
 				return o.replace(item,"").replace(/,\s+/g,",").replace(/,+/g,",");});
@@ -111,7 +115,7 @@
 			selectText("result");
 		});
 		$("#go3").on("click", function() {
-			$("#result").empty();
+			$("#result").val("");
 		});
 		$("#go4").on("click", function() {
 			$("#word").val(function(i,o){
@@ -142,32 +146,42 @@
 				if(item.search(/time|date/i)!=-1)it+=time;
 				last=last.replace(/PATT2\"/,it);
 			}
-			$('#result').text(last);
+			$('#result').val(last);
 			selectText("result");
 			
 		});
 		$("#go6").on("click", function() {
-			$("#textSour").val(function(i,o){
-			var patt=/( FROM)|( WHERE)|( INNER JOIN)|( LEFT)|( RIGHT)|( HAVING)|( ORDER)|( LIMIT)|( GROUP)/ig;
-			o=o.replace(/\s+/g,' ').toUpperCase().replace(patt,'\n$&');
-			var arr=o.split(/\n/),res='';console.log(arr);
-				for(let i=0;i<arr.length;i++){
-					if(arr[i].length>100){
-						console.log(i+": "+arr[i].length);
-						let index=arr[i].indexOf(',',50)!=-1?arr[i].indexOf(',',50):arr[i].indexOf(' ',50);
-						if(index!=-1){
-							let sub1=arr[i].substr(0,index);
-							let sub2=arr[i].substr(index);
-							arr.splice(i,1,sub1,sub2);
-						}
-					}
-				}
+			function append(arr){
+				var res='';
 				for(let str of arr){
 					console.log(str+"\n"+str.length);
 					res+='query.append("';
 					if(str)res+=str+'\\n");\n';
 				}
-			return res;
+				return res;
+			}
+			function formatSql(i,o){
+					var patt=/( FROM)|( WHERE)|( INNER JOIN)|( LEFT)|( RIGHT)|( HAVING)|( ORDER)|( LIMIT)|( GROUP)/ig;
+					o=o.replace(/\s+/g,' ').toUpperCase().replace(patt,'\n$&');
+					var arr=o.split(/\n/);console.log(arr);
+						for(let i=0;i<arr.length;i++){
+							if(arr[i].length>100){
+								console.log(i+": "+arr[i].length);
+								let index=arr[i].indexOf(',',50)!=-1?arr[i].indexOf(',',50):arr[i].indexOf(' ',50);
+								if(index!=-1){
+									let sub1=arr[i].substr(0,index);
+									let sub2=arr[i].substr(index);
+									arr.splice(i,1,sub1,sub2);
+								}
+							}
+						}
+						
+					return append(arr);
+					}
+			
+			$("#textSour").val(function(i,o){
+				if(confirm("只加append不格式化？"))return append(o.toUpperCase().split(/\n/));
+				return formatSql(i,o);
 			});
 		});
 		var data={},liElm='<li class="list-group-item"><div class="input-group"><span class="input-group-addon">desc</span><input type="text" value="123" class="form-control"><span class="input-group-addon hide">保留</span></div></li>';
@@ -200,7 +214,7 @@
 				tem=tem.replace('name',v.name);
 				return tem;
 			}));
-			target.text(end.join('\n'));
+			target.val(end.join('\n'));
 			$('button[data-dismiss]').click();
 		});
 		$("#go7").on("click", function(){
@@ -223,12 +237,12 @@
 				var arr=item.split('\n'),name=/name=\W?(\w+)/,field=/data-fieldName=\W?(\w+)/;
 				for(let i in arr){
 					let tem=template,f=arr[i].match(field),n=arr[i].match(name);
-					if(n){
+					if(n&&f){
 						tem=tem.replace('field',f[1]);
 						tem=tem.replace('name',n[1]);
 						SQL+="A."+f[1]+",";
 						data[n[1]]=f[1];
-						target.text(function(i,o){return o+tem+"\n";});
+						target.val(function(i,o){return o+tem+"\n";});
 					}
 				}
 			SQL=SQL.substr(0,SQL.length-1)+"\nFROM A";
