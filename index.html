@@ -127,7 +127,10 @@
 			else return str;});
 		});
 		$("#go5").on("click", function(){
-			let src=$("#textSour").val().split('\n');
+			let src=$("#textSour").val(),index=src.indexOf('<script');
+			if(index!=-1)src=src.substr(index);
+// 			src=src.match(/{[\s\S]+?}/g);
+			src=src.split('\n');
 			let field=/.+?field.+?\"(\w+?)\"/i;
 			let title=/.+?title.+?\"(.+?\")/i;
 // 			let patt=prompt("请选择pattern",1)==1?field:title;
