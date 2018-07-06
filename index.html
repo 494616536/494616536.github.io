@@ -28,6 +28,7 @@
 				</span>
 			</div>
 			<div class="btn-group">
+				<button class="btn btn-default" id="compare" data-toggle="tooltip" title="下面的值在上面比对字段">比对字段</button>
 				<button class="btn btn-default" id="go2" data-toggle="tooltip" title="用字段逐个替换下面的内容中的正则,下面没有内容就是上面的逐个删除">逐个替换</button>
 				<button class="btn btn-default" id="go3" data-toggle="tooltip" title="清除下面内容">清除</button>
 				<button class="btn btn-default" id="go4" data-toggle="tooltip" title="把字段格式化方便替换">替换字段中的空字符</button>
@@ -252,6 +253,17 @@
 			$("#textSour").val(SQL);
 			}
 			selectText("result");
+		});
+		$("#compare").on("click", function(){
+		var word=$("#word").val(),reg=$("#reg").val(),exists=[],notexists=[];
+		word=word.replace(/\s+|、|\|/g,",").replace(/,+/g,",").split(',');
+		reg=reg.replace(/\s+|、|\|/g,",").replace(/,+/g,",").split(',');
+		$.each(word,function(i,v){
+			if($.inArray(v,reg)!=-1)exists.push(v);
+			else notexists.push(v);
+		});
+		$("#textSour").val("存在：\n"+exists.join(",")+"\n不存在：\n"+notexists.join(","));
+				
 		});
 	</script>
 </body>
