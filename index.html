@@ -86,6 +86,7 @@
         }
     }
 		$("#go").on("click", function(){
+			$("#go4").click();
 			var arr=$("#word").val().split(/(,|，)/);
 			var patt = new RegExp($("#reg").val(),"g");
 			var target=$("#result");
