@@ -69,6 +69,136 @@ function objOfPropertyToArr(object) {
     	}
     return arr;
 }
+//公共excel导出
+function CommonExportXls(container,obj,table){
+	var url=$(obj).attr('excel-url'),diy=$(obj).attr('excel-config'),options;
+	var path=url?url:dmsCommon.getDmsPath()["web"]+"/common/exportXls/export";
+	if(!table)table=$.trim($(obj).attr('excel-table'));
+	var $table=table?$(table,container):(obj?$("table[id]:eq(0)",$(obj).closest(".panel-default")):$("table[id]:eq(0)",container));
+	var dmsFuncId=$(container).data("dmsFuncId");//||$table.closest(".tab-pane")[0].id.substr(4);
+	var field=[],title=[],dict=[],date=[];
+	options=$table.bootstrapTable("getOptions");
+	if(diy==""||diy)
+		options.url=dmsCommon.getDmsPath()[$(obj).attr('data-model')]+$(obj).attr('data-url');
+	var data={ sort:options.sortName||options.idField,order:options.sortOrder||"desc",offset:'0',limit:'30000'},arr=[];
+	options.queryParams(data);
+	if(diy){
+		var cols=diy.split(";");
+		$.each(cols,function(i,v){
+			var col=v.split(",");
+			if(col.length<2)return;
+			field.push(col[0]);
+			title.push(col[1]);
+			dict.push(col[2]?parseInt(col[2]):0);
+			date.push("");
+		});
+	}
+	else
+		$.each(options.columns[0],function(i,v){
+		if('序号'==v.title)return;
+		if("操作"!=$.trim(v.title))title.push(v.title);
+		else return;
+		field.push(v.field);
+		v.codeFormat?dict.push(1):dict.push(0);
+		v.dateFormat?date.push(v.dateFormat.format):date.push("");
+	});
+	data.tableInfo={field:field,title:title,dict:dict,date:date};
+	arr=options.url.split(/\/rest|\?/);
+	data.tableUrl=arr[1];
+	data.requestModel=arr[0].substr(arr[0].lastIndexOf("/")+1);
+	data.fileName=$(obj).attr('excel-fileName')||($.trim(($table.closest(".panel-default").find(".pannel-name:first").text()||$('a[href*='+dmsFuncId+']').text()).match(/\S+/))).replace(/列表/,"信息")||"导出信息";
+	postDmsDataWithForm(path,data,container);
+}
+//公共打印
+function HtmlPrintPdf(container,url){
+	var path=url?url:dmsCommon.getDmsPath()["web"]+"/common/printPdf/print";
+	var data={},type=[],arr=[],panel=[],file=$.trim($(".modal-title",container).text());
+	$(".panel-body",container).filter(function(i){
+		return $(".panel-body",this).length==0;
+	}).each(function(i,v){
+		var $tables=$("table[id]",v),parent=$(v).parent(),pannelName="信息";
+		if(parent.is(".panel-default")){
+			var conn=$(this).prev().is(".panel-heading")?$(this).prev():parent;
+			var $panel_name=$('.pannel-name',conn);
+			if($panel_name.length>0)pannelName=($.trim($panel_name[0].childNodes[0].nodeValue)||$panel_name.eq(0).text()).match(/\S+/);
+		}
+		else if(parent.is(".tab-pane"))pannelName=$("a[href*='"+parent[0].id+"']",container).eq(0).text().match(/\S+/);
+		panel.push($.trim(pannelName?pannelName:"信息"));
+		if($tables.length>0)
+			$tables.each(function(i,v){
+				arr.push(serlizeHtml($(v)));
+				type.push(1);
+			});
+		else{
+			arr.push(serlizeHtml($(v)));
+			type.push(0);
+		}
+	});
+	data.type=type;
+	data.panel=panel;
+	data.rows=arr;
+	data.name=file.replace(/明细|编辑|新增/,"")||"打印单据";
+	postDmsDataWithForm(path,data,container);
+}
+function postDmsDataWithForm(path,data,container){
+	var form=$("<form method='post'></form>");
+	form.attr({"target":"_blank","action":path});
+	$("<input value='"+$(container).data("dmsFuncId")+"' name='dmsFuncId'/>").appendTo(form);
+	$("<input value='"+dmsCommon.getCurrentToken()+"' name='urlToken'/>").appendTo(form);
+	$("<input value='"+JSON.stringify(data)+"' name='data'/>").appendTo(form);
+	$(container).append(form);
+	form.validate({ignore:".ignore"});
+	form.submit();
+	form.remove();
+}
+function getDmsElemValue(con){
+	var $input=$(con).is(":input")?$(con):$(':input:not([type="hidden"]):not("button")',con),value="";
+	if($input.is('select'))
+		if($input.filter("input").length==0||$input.length==2&&$input.filter('input').parent().is(".bs-searchbox")){
+			value=$input.siblings("button").attr("title")||$input[0].options[$input[0].selectedIndex].text;
+			return /请选择|没有选中/.test(value)?"":value;
+		}
+	$input=$input.not("select");
+	if($input.length>0)
+		switch($input[0].type){
+		case "checkbox":
+		case "radio":$input.filter(":checked").each(function(i,v){value+=$(v).next().text()+",";});if(value)value=value.substr(0,value.length-1);break;
+		default:$input.each(function(i,v){value+=$(v)[0].value+$.trim($(v).next("span").text());});
+		}
+	return value;
+}
+//获取打印的数据
+function serlizeHtml($con){
+	var temp={},res={},list=[],name=[],j=0;
+	if($con.is('div'))
+		$(".form-group",$con).each(function(i,v){
+			var text=$.trim($('label',v).eq(0).text());
+			if(text){
+				name[j++]=text.replace(/:|：/,"");
+				temp[name[j-1]]=getDmsElemValue(v);
+			}
+		});
+	else if($con.is('table'))
+		$("tr",$con).each(function(i,v){
+			var res={};
+			if(!i)
+				$(v.cells).each(function(i,v){
+					name[i]=$.trim($(v).text());
+				});
+			else{
+				$.each(v.cells,function(i,cell){
+					var text=getDmsElemValue(cell);
+					res[name[i]]=text ? text:$.trim($(cell).text());
+				});
+				list.push(res);
+			}
+		});
+	if(list.length==0)
+		list.push(temp);
+	res.list=list;
+	res.name=name;
+	return res;
+}
 // 将Object的属性值输出成Array
 function objOfValueToArr(object) {
     var arr = [];
@@ -136,16 +266,43 @@ function lowerJSONKey_fw(jsonObj){
  * @param obj 页面元素
  * @param container  页面容器
  */
-function getCheckBoxVal(obj,container){
+function getCheckBoxVal(obj,container,type){
 	var typeName = "";
-	var groupCheckbox=$("input[name='"+obj+"']");
+	var groupCheckbox=$("input[name='"+obj+"']",container);
     for(i=0;i<groupCheckbox.length;i++){
         if(groupCheckbox[i].checked){
             var val =$("#"+obj+"val"+i,container).html();
             if(typeName == ""){
             	typeName +=  val;
 			}else{
-				typeName += "-" + val;
+				typeName += type==1?",":"-" + val;
+			}
+        }
+    }
+	return typeName;
+}
+/**
+ * 定义常规函数
+ * @param value
+ * @param row
+ * @param index
+ */
+
+/**
+ * 获得多选框的值
+ * @param obj 页面元素
+ * @param container  页面容器
+ */
+function getCheckBoxVal(obj,container){
+	var typeName = "";
+	var groupCheckbox=$("input[name='"+obj+"']",container);
+    for(i=0;i<groupCheckbox.length;i++){
+        if(groupCheckbox[i].checked){
+            var val =$("#"+obj+"val"+i,container).html();
+            if(typeName == ""){
+            	typeName +=  val;
+			}else{
+				typeName += "," + val;
 			}
         }
     }
@@ -357,10 +514,11 @@ function analysisFormual(formual){
  * 获得有dmsFuncId 参数的url
  * @param url
  */
-function getDmsFuncIdUrl(url,urlToken){
+function getDmsFuncIdUrl(url,urlToken,container){
 	if(!isStringNull(url)){
 		var newUrl = url;
-		var dmsFuncId = $("#dmsPageContent").data("dmsFuncId");
+		var dmsFuncId = container ? container.data("dmsFuncId") : null;
+		dmsFuncId = dmsFuncId || $("#dmsPageContent .tab-pane.active").data("dmsFuncId");
 		if(dmsFuncId){
 			newUrl = newUrl.indexOf("?")==-1?(newUrl+"?"+"dmsFuncId="+dmsFuncId):(newUrl+"&"+"dmsFuncId="+dmsFuncId);
 		}
@@ -384,7 +542,7 @@ function getElementContext(){
 //	$("div.page-content-body  div.dms-add:visible,div.page-content-body div.dms-edit:visible,div.page-content-body div.dms-search:visible,div.page-content-body div.dms-delete:visible,div.modal.fade").each(function(i,item){
 //		console.log("---------------------------------"+$(item).html());
 //	});
-	return $("div.page-content-body  div.dms-add:visible,div.page-content-body div.dms-edit:visible,div.page-content-body div.dms-search:visible,div.page-content-body div.dms-delete:visible,div.page-content-body div.dms-detail:visible,div.modal.fade");
+	return $("div.page-content-body div.dms-add:visible,div.page-content-body div.dms-edit:visible,div.page-content-body div.dms-search:visible,div.page-content-body div.dms-delete:visible,div.page-content-body div.dms-detail:visible,div.modal.fade");
 }
 /**
  * 获得父窗口
@@ -531,13 +689,51 @@ function numAccMul(num1, num2) {
             * Number(num2.toString().replace(".", ""))  
             / Math.pow(10, baseNum);  
 }; 
+//加法   
+Number.prototype.add = function(arg){   
+    var r1,r2,m;   
+    try{r1=this.toString().split(".")[1].length}catch(e){r1=0}   
+    try{r2=arg.toString().split(".")[1].length}catch(e){r2=0}   
+    m=Math.pow(10,Math.max(r1,r2))   
+    
+    return (this.mul(m) + arg.mul(m)) / m;   
+}  
+
+//减法   
+Number.prototype.sub = function (arg){   
+	
+    return this.add(-arg);   
+}   
+
+//乘法   
+Number.prototype.mul = function (arg)   
+{   
+    var m=0,s1=this.toString(),s2=arg.toString();   
+    try{m+=s1.split(".")[1].length}catch(e){}   
+    try{m+=s2.split(".")[1].length}catch(e){}   
+    
+    return Number(s1.replace(".",""))*Number(s2.replace(".",""))/Math.pow(10,m)   
+}   
+
+//除法   
+Number.prototype.div = function (arg){   
+    var t1=0,t2=0,r1,r2;   
+    try{t1=this.toString().split(".")[1].length}catch(e){}   
+    try{t2=arg.toString().split(".")[1].length}catch(e){}   
+    with(Math){   
+        r1=Number(this.toString().replace(".",""))   
+        r2=Number(arg.toString().replace(".",""))  
+        
+        return (r1/r2)*pow(10,t2-t1);   
+    }   
+}
 //重写Number中定义的toFixed方法，解决原方法在不同浏览器精度的问题。
 Number.prototype.toFixed = function(fractionDigits){
-	var num = this * Math.pow(10, fractionDigits);
+	var num = this.mul(Math.pow(10, fractionDigits));
 	if(this >= 0){
-		num = num + 0.5;
+		num = num.add(0.5);
 	}else{
-		num = num - 0.5;
+		num = num.sub(0.5);
 	}
 	changenum = (parseInt(num)/Math.pow(10, fractionDigits)).toString();
 	var index = changenum.indexOf(".");
@@ -681,14 +877,16 @@ var dmsCommon = function() {
 	var navigatorInfo;
 	var currentToken;
 	var pageLanguage;
+	var tabLabelsFlag = true; //标签页功能默认开启
+	
 	//定义系统路径
 	var DMS_PATH={
-		root:"/dms.web",
-		demo:"/dms.web/demo/rest",
-		manage:"/dms.web/manage/rest",
-		report:"/dms.web/report/rest",
-		web:"/dms.web/web/rest",
-		business:"/dms.web/business/rest"
+		root:"/qtmotor",
+		demo:"/qtmotor/demo/rest",
+		manage:"/qtmotor/manage/rest",
+		report:"/qtmotor/report/rest",
+		web:"/qtmotor/web/rest",
+		business:"/qtmotor/business/rest"
 	};
 	
 	//定义向上查找的DOM的范围
@@ -748,6 +946,8 @@ var dmsCommon = function() {
 
 	// 当菜单发生变化时执行初始化
 	var initFunc = function(container) {
+		//开启标签页功能时不执行初始化菜单栏
+		if(tabLabelsFlag) return;
 		initPageBar(container); // 初始化菜单栏
 	};
 	// 初始化菜单栏--导航栏
@@ -795,6 +995,82 @@ var dmsCommon = function() {
 		//删除原菜单栏
 		$("div.page-content-wrapper > div.page-content > div.page-bar").html(pageBarArray.join(""));
 	}
+	
+	/**
+	 * 添加标签页
+	 */
+	var addPageBar = function(bar){
+		//打开标签的参数不可缺少
+		if(bar && bar.menuId && bar.url && bar.text){
+			var tabs = $(".page-content > .page-bar > .nav-pills");
+			//首次触发时创建容器和resize事件
+			if(!tabs.length){
+				tabs = $('<ul class="nav nav-pills">').appendTo("div.page-content-wrapper > div.page-content > div.page-bar").tabdrop();
+				$("#dmsPageContent").on("resize", function(){
+					$(".page-content > .page-bar").width($(this).width() - 20);
+				}).trigger("resize");
+			}
+			var menuId = bar.menuId;
+			var url = bar.url;
+			var text = bar.text;
+			var tab = tabs.find("a[href=\\#tab_"+menuId+"]").closest("li");
+			var page = $("#dmsPageContent > #tab_"+menuId);
+			//判断标签是否已经存在
+			if(!tab.length){
+//				var len = 0;
+//				tabs.find("li").each(function(){
+//					len += $(this).width();
+//				});
+//				if(len > $(window.document).width() - 300){
+//					handelBootstrapToastr({status:"info",msg:"页面数量已达到上限，请先关闭部分页面。",timeOut:"4000"});
+//					return;
+//				}
+				//创建标签和页面容器
+				tab = $('<li><a href="#tab_'+menuId+'" data-toggle="tab"><i class="fa fa-file-o"></i>'+text+'</a><img src="../assets/pages/img/s.gif" width="8" height="8" /></li>').appendTo(tabs);
+				page = $('<div class="tab-pane active" id="tab_'+menuId+'"></div>').appendTo("#dmsPageContent");
+				if(menuId == 1){
+					tab.addClass("home").find("i").removeClass("fa-file-o").addClass("fa-home");
+					tab.addClass("home").find("img").remove();
+				}
+				//关闭按钮和事件
+				tab.find("img").click(function(){
+					if(tab.hasClass("active")){
+						tab.prev().find("a").tab('show');
+					}
+					tab.remove();
+					page.remove();
+				});
+				//双击事件
+				tab.dblclick(function(){
+					if(menuId != 1){
+						tab.find("img").trigger("click");
+					}
+				});
+				//切换标签时菜单联动
+				tab.find("a").on('shown.bs.tab', function (e) {
+					dmsIndex.changeActiveMenuClass(menuId);
+				})
+				
+				//执行页面请求
+	        	ajaxPageRequest({
+	        		url: url,
+	        		container: page,//定义容器
+	        		success: function(html){
+	        			//还原查询条件
+	        			dmsIndex.changeFuncCacheData(menuId);
+	        		},
+	        		complete:function(xmlRequest, statusCode){
+	        			
+	        		}
+	        	});
+			}
+			//显示标签
+			tab.find("a").tab('show');
+			//计算是否超出宽度
+			$("#dmsPageContent").trigger("resize");
+		}
+	}
+	
 	/**
 	 * 处理日期控件
 	 */
@@ -1296,11 +1572,27 @@ var futureDateRangePickers = function (container) {
 			var defionOptions = {};
 			if($(dateTimeObj).attr("data-dateEndDate")=="now"){
 				defionOptions.endDate = moment().format("YYYY-MM-DD HH:mm");
+			}else if($(dateTimeObj).attr("data-dateEndDate")!=null){
+				var endDate = $(dateTimeObj).attr("data-dateEndDate");
+				var intDate = parseInt(endDate);
+				if(intDate.toString()=='NaN'){
+					defionOptions.endDate = endDate;
+				}else{
+					defionOptions.endDate=moment(intDate).format("YYYY-MM-DD HH:mm");
+				}
+				
 			}
 			if($(dateTimeObj).attr("data-dateStartDate")=="now"){
 				defionOptions.startDate = moment().format("YYYY-MM-DD HH:mm");
+			}else if($(dateTimeObj).attr("data-dateStartDate")!=null){
+				var startDate = $(dateTimeObj).attr("data-dateStartDate");
+				var intDate = parseInt(startDate);
+				if(intDate.toString()=='NaN'){
+					defionOptions.startDate = startDate;
+				}else{
+					defionOptions.startDate=moment(intDate).format("YYYY-MM-DD HH:mm");
+				}
 			}
-			
 			//定义日历控件的位置
 			if($(item).attr("data-pickerPosition")){
 				defionOptions.pickerPosition = $(item).attr("data-pickerPosition");
@@ -1632,12 +1924,12 @@ var futureDateRangePickers = function (container) {
 			if($(btn).closest($("#modelContainerDiv")).size()>0){
 				memoryContainer = $("#modelContainerDiv");
 			}else{
-				memoryContainer = $("#dmsPageContent");
+				memoryContainer = container;
 			}
 			memorySearchCondition(btn,memoryContainer,"memoryDefaultSearchData");
 			//绑定重置按钮
 			$(btn).on('click', function(e) {
-				resetForm(this);
+				resetForm(this,container);
 				//日期控件重置
 				var dateInput = formObj.find('.input-group.input-daterange');
 				if(dateInput.length){
@@ -2053,8 +2345,7 @@ var futureDateRangePickers = function (container) {
 			cleanPageCache();
 			
 			var url = $(this).attr("href");
-			var pageContent = $('div.page-content');
-			var pageContentBody = $('div.page-content div.page-content-body');
+			var pageContentBody = $('div#dmsPageContent div.tab-pane.active');
 			if (App.getViewPort().width < Layout.getResBreakpointMd() && $('.page-sidebar').hasClass("in")) { // close the menu on mobile view while laoding a page 
 				$('.page-header .responsive-toggler').click();
 			}
@@ -2075,7 +2366,7 @@ var futureDateRangePickers = function (container) {
 				}
 			}
 			
-			var pageData = $.extend(getRequest(url), $(this).data('pageData'));
+			var pageData = $.extend({"dmsFuncId":container.data("dmsFuncId")}, getRequest(url), $(this).data('pageData'));
 			
 			//记录查询界面查询条件
 			var autoMemorySearchData = $(this).attr('data-autoMemorySearchData');
@@ -2409,7 +2700,6 @@ var futureDateRangePickers = function (container) {
 	
 	//初始化弹出框
 	function initModel(container){
-		
 		var modelEvent = function(e){
 			var el = $(this);
 			
@@ -2453,7 +2743,7 @@ var futureDateRangePickers = function (container) {
 				}
 			}
 			var url = el.attr('data-url');
-			var pageData = $.extend(getRequest(url), el.data('pageData'));
+			var pageData = $.extend({"dmsFuncId":container.data("dmsFuncId")}, getRequest(url), el.data('pageData'));
 			
 			//绑定关闭事件
 			$modal.on('hidden.bs.modal', function () {
@@ -2463,6 +2753,7 @@ var futureDateRangePickers = function (container) {
 			});
 				
 			var modelContainer = $(".modal-content",$modal);
+			modelContainer.data("dmsFuncId", container.data("dmsFuncId"));
 			$modal.draggable({
 				handle: ".modal-header"
 			});
@@ -2475,7 +2766,11 @@ var futureDateRangePickers = function (container) {
 				container:modelContainer,//定义容器
 				pageData:pageData,
 				complete:function(xmlRequest, statusCode){
-					$modal.modal();
+					var modalShowOption = {};
+					if(isDetailFlag != "true" && $('>div.dms-add, >div.dms-edit', modelContainer).size() > 0){
+						modalShowOption.backdrop = "static";
+					}
+					$modal.modal(modalShowOption);
 					//设置父窗口
 					if(currentModal!=undefined){
 						$(modelContainer).data("data-parentModal",currentModal);
@@ -2511,7 +2806,7 @@ var futureDateRangePickers = function (container) {
 			var url = contentBody.attr('data-url');
 			var pageData = $.extend(getRequest(url), $(tabElement).data('pageData'));
 			//判断是否是明细界面
-			var isDetailFlag = $("#dmsPageContent").find("div.dms-edit:first").attr("data-isDetailFlag");
+			var isDetailFlag = container.find("div.dms-edit:first").attr("data-isDetailFlag");
 			
 			if(url&&(contentBody.attr("data-loaded")==undefined||contentBody.attr("data-loaded")=="false")){
 				//执行页面请求
@@ -2678,7 +2973,7 @@ var futureDateRangePickers = function (container) {
 			var requestObj = requestRestFormObj(obj,container);
 			
 			var fileUploadObjOption = $.extend(true,{},{
-				 uploadUrl: getDmsFuncIdUrl(requestObj.url),
+				 uploadUrl: getDmsFuncIdUrl(requestObj.url,null,container),
 				 language:"zh",
 				 fileActionSettings:{
 					 layoutTemplates:"<div></div>",
@@ -2690,7 +2985,7 @@ var futureDateRangePickers = function (container) {
 				 enctype: 'multipart/form-data',
 				 allowedFileExtensions : ['xls', 'xlsx'],
 				 browseClass: "btn btn-primary", 
-				 maxFileSize: 5242880,
+				 maxFileSize: 10240,
 				 uploadExtraData:function(previewId, index){
 					 return $.extend(true,$(requestObj.formObj).serializeFormJson(),{urlToken:currentToken});
 				 }
@@ -2755,11 +3050,11 @@ var futureDateRangePickers = function (container) {
 								var initialPreview = response.initialPreview;
 								//改变URL 的值
 								$.each(response.initialPreview,function(previewIndex,priviewUrl){
-									response.initialPreview[previewIndex] = getDmsFuncIdUrl(dmsCommon.getDmsPath()["web"]+priviewUrl,currentToken);
+									response.initialPreview[previewIndex] = getDmsFuncIdUrl(dmsCommon.getDmsPath()["web"]+priviewUrl,currentToken,container);
 								});
 								$.each(response.initialPreviewConfig,function(previewIndex,priviewConifg){
 									var previewConfig = response.initialPreviewConfig[previewIndex];
-									previewConfig.url = getDmsFuncIdUrl(dmsCommon.getDmsPath()["web"]+previewConfig.url,currentToken);
+									previewConfig.url = getDmsFuncIdUrl(dmsCommon.getDmsPath()["web"]+previewConfig.url,currentToken,container);
 								});
 								var defineNewOption = $.extend({},defineOption,response,true);
 								initFileInputWithPriview(fileInput,defineNewOption,container);
@@ -2812,7 +3107,7 @@ var futureDateRangePickers = function (container) {
 		
 		//定义默认属性
 		var fileUploadObjDefaultOption = $.extend(true,{},{
-			 uploadUrl: getDmsFuncIdUrl(dmsCommon.getDmsPath()["web"] + "/basedata/upload"),
+			 uploadUrl: getDmsFuncIdUrl(dmsCommon.getDmsPath()["web"] + "/basedata/upload",null,container),
 			 language:"zh",
 			 showClose:false,
 			 showPreview:false,
@@ -2823,7 +3118,7 @@ var futureDateRangePickers = function (container) {
 			 initialPreviewAsData: true,
 			 enctype: 'multipart/form-data',
 			 browseClass: "btn btn-primary", 
-			 maxFileSize: 51200,
+			 maxFileSize: 10240,
 			 layoutTemplates:{
 				 modal:'<div class="modal-dialog modal-lg" role="document">\n' +
 					'  <div class="modal-content">\n' +
@@ -2927,7 +3222,7 @@ var futureDateRangePickers = function (container) {
 				$(fileCaptionDiv).on("click",function(event){
 					if($(fileCaptionDiv).find("i").size()>0){
 						//执行下载
-						downLoadWithoutForm(fileCaptionDiv,dmsCommon.getDmsPath()["web"]+"/basedata/download/billFilesDownload/"+billType+"/"+key);
+						downLoadWithoutForm(fileCaptionDiv,dmsCommon.getDmsPath()["web"]+"/basedata/download/billFilesDownload/"+billType+"/"+key,null,container);
 					}
 				});
 			}
@@ -3002,7 +3297,7 @@ var futureDateRangePickers = function (container) {
 		var fileParentContainer = $(fileInput).parent();
 		//定义默认属性
 		var fileUploadObjDefaultOption = $.extend(true,{},{
-			 uploadUrl: getDmsFuncIdUrl(dmsCommon.getDmsPath()["web"] + "/basedata/upload"),
+			 uploadUrl: getDmsFuncIdUrl(dmsCommon.getDmsPath()["web"] + "/basedata/upload",null,container),
 			 language:"zh",
 			 fileActionSettings:{
 				 layoutTemplates:"<div></div>",
@@ -3016,8 +3311,8 @@ var futureDateRangePickers = function (container) {
 			 initialPreviewAsData: true,
 			 enctype: 'multipart/form-data',
 			 browseClass: "btn btn-primary", 
-			 maxFileSize: 51200,
-			 maxFilePreviewSize:51200, //最大5M
+			 maxFileSize: 10240,
+			 maxFilePreviewSize:10240, //最大10M
 			 previewSettings: {
 				image: {width: "160px", height: "95px"},
 				text: {width: "160px", height: "95px"},
@@ -3177,7 +3472,7 @@ var futureDateRangePickers = function (container) {
 			if(key){
 				$(fileCaptionDiv).on("click",function(event){
 					//执行下载
-					downLoadWithoutForm(fileCaptionDiv,dmsCommon.getDmsPath()["web"]+"/basedata/download/billFilesDownload/"+billType+"/"+key);
+					downLoadWithoutForm(fileCaptionDiv,dmsCommon.getDmsPath()["web"]+"/basedata/download/billFilesDownload/"+billType+"/"+key,null,container);
 				});
 			}
 		});
@@ -3309,11 +3604,11 @@ var futureDateRangePickers = function (container) {
 	/**
 	 * 加载tree 结构
 	 */
-	function initTree(treeObj,option){
+	function initTree(treeObj,option,container){
 		var defaultOption = {
 			core:	{
 				data:{
-					url:getDmsFuncIdUrl(option.url,currentToken),
+					url:getDmsFuncIdUrl(option.url,currentToken,container),
 					data:option.dataFunc
 				}
 			},
@@ -3339,7 +3634,7 @@ var futureDateRangePickers = function (container) {
 	/**
 	 * 下载数据
 	 */
-	function downLoadRequest(option){
+	function downLoadRequest(option,container){
 		var url = option.url;
 		var formObj = option.formObj;
 		var copyForm = $(formObj).clone();
@@ -3349,7 +3644,7 @@ var futureDateRangePickers = function (container) {
 		//处理Form表单中的数组
 		handelFormArray(copyForm,formObj);
 		//增加dmsFuncId
-		var dmsFuncId = $("#dmsPageContent").data("dmsFuncId");
+		var dmsFuncId = container.data("dmsFuncId");
 		$("<input type='hidden' id = 'dmsFuncId' value='"+dmsFuncId+"' name='dmsFuncId'/>").appendTo($(copyForm));
 		//添加urlToken 值
 		$("<input type='hidden' id = 'urlToken' value='"+currentToken+"' name='urlToken'/>").appendTo($(copyForm));
@@ -3364,7 +3659,7 @@ var futureDateRangePickers = function (container) {
 	/**
 	 * 下载数据
 	 */
-	function downLoadWithoutForm(obj,url,param){
+	function downLoadWithoutForm(obj,url,param,container){
 		var copyForm = $("<form> </from>");
 		$(copyForm).hide();
 		//将Form 增加到页面上
@@ -3377,7 +3672,7 @@ var futureDateRangePickers = function (container) {
 			});
 		}
 		//增加dmsFuncId
-		var dmsFuncId = $("#dmsPageContent").data("dmsFuncId");
+		var dmsFuncId = container.data("dmsFuncId");
 		$("<input type='hidden' id = 'dmsFuncId' value='"+dmsFuncId+"' name='dmsFuncId'/>").appendTo($(copyForm));
 		
 		//添加urlToken 值
@@ -3463,7 +3758,13 @@ var futureDateRangePickers = function (container) {
 			var method = requestObj.type;
 			if(method&&method=="downLoad"){
 				//进行ajax 请求
-				downLoadRequest(requestObj);
+				downLoadRequest(requestObj,container);
+			}else if(method&&method=="print"){
+				//打印
+				HtmlPrintPdf(container);
+			}else if(method&&method=="export"){
+				//导出excel
+				CommonExportXls(container,obj);
 			}else{
 				//进行ajax 请求
 				ajaxRestRequest(requestObj);
@@ -3573,14 +3874,14 @@ var futureDateRangePickers = function (container) {
 	/**
 	 * 重置表单信息
 	 */
-	var resetForm = function(resetBtn) {
+	var resetForm = function(resetBtn,container) {
 		var searchForm = $(resetBtn).closest("form");
 		var memoryData;
 		//如果是在弹出页面
 		if($(resetBtn).closest($("#modelContainerDiv")).size()>0){
 			memoryData = $("#modelContainerDiv").data("memoryDefaultSearchData");
 		}else{
-			memoryData = $("#dmsPageContent").data("memoryDefaultSearchData");
+			memoryData = container.data("memoryDefaultSearchData");
 		}
 		//设置查询条件
 		setSearchFormCondition(searchForm,memoryData);
@@ -3613,8 +3914,11 @@ var futureDateRangePickers = function (container) {
 		argsArray.push("");
 		//执行元素遍历，对每个元素设置值
 		$('input[type!="checkbox"][type!="radio"][id],input[type!="checkbox"][type!="radio"][name],select:not([parent]),select[data-parentInit="true"],textarea,div.form-group input[type="radio"]:first,div.form-group input[type="checkbox"]:first',container).each(function(index,item) {
-			//MODIFY BY MBH 20180410 FOR 【防止页面影藏元素条件因为重置后被清空】 
+			//MODIFY BY MBH 20180410 FOR 【防止页面影藏元素条件因为重置后被清空】
 			if(item.type!="hidden"){
+				updateObjectByValue(this,container,true,getMemorySearchValue,argsArray);
+			}
+			if($(item).attr('data-clear')=='true'){
 				updateObjectByValue(this,container,true,getMemorySearchValue,argsArray);
 			}
 		});
@@ -4152,13 +4456,73 @@ var futureDateRangePickers = function (container) {
 	 */
 	var autoInitSearchCondition = function(container){
 		var form = $("form:first",container);
-		var memorySearchData = $('#dmsPageContent').data("memorySearchData");
+		var memorySearchData = container.data("memorySearchData");
 		if(memorySearchData){
 			$.each(memorySearchData,function(key,value){
 				$("<input type='hidden' id = '"+key+"' value='"+value+"' name='"+key+"'/>").appendTo($(form));
 			});
 		}
 	}
+	
+	var openModal = function(options){
+		var container = options.container;
+		var currentModal = $(container).closest(".modal-content");
+		
+		var modalSize = $("#modelContainerDiv").data("data-modalSize");
+		if(modalSize==undefined){
+			modalSize = 0;
+		}
+		modalSize = modalSize+1;
+		$("#modelContainerDiv").append('<div id="ajax-modal'+modalSize+'" class="modal fade draggable-modal" tabindex="-1" aria-hidden="true" ><div class="modal-dialog" ><div class="modal-content" > </div></div></div>')
+		
+		var $modal = $('#ajax-modal'+modalSize);
+		var defineWidth = options.width;
+		if(defineWidth){
+			$(".modal-dialog",$modal).addClass(defineWidth);
+			$modal.addClass("bs-"+defineWidth);
+		}else{
+			$(".modal-dialog",$modal).addClass("modal-md");
+			$modal.addClass("bs-modal-md");
+		}
+		
+		var url = options.url;
+		var pageData = $.extend(getRequest(url), options.pageData);
+		
+		//绑定关闭事件
+		$modal.on('hidden.bs.modal', function () {
+			setTimeout(function(){
+				$modal.remove();
+			},100);
+		});
+			
+		var modelContainer = $(".modal-content",$modal);
+		$modal.draggable({
+			handle: ".modal-header"
+		});
+		
+		//判断是否是明细按钮
+		var isDetailFlag = options.isDetailFlag;
+		//执行页面请求
+		ajaxPageRequest({
+			url:url,
+			container:modelContainer,//定义容器
+			pageData:pageData,
+			complete:function(xmlRequest, statusCode){
+				$modal.modal();
+				//设置父窗口
+				if(currentModal!=undefined){
+					$(modelContainer).data("data-parentModal",currentModal);
+				}
+				$("#modelContainerDiv").data("data-modalSize",modalSize);
+				
+				//如果是明细界面，则将界面元素标记为只读
+				if(isDetailFlag&&isDetailFlag=="true"){
+					$("div.dms-edit",modelContainer).attr("data-isDetailFlag",true);
+				}
+			}
+		});
+	}
+	
 	/**
 	 * 定义返回值
 	 */
@@ -4191,6 +4555,9 @@ var futureDateRangePickers = function (container) {
 		statusCodeHandel:function(option,isRest){
 			return statusCodeHandel(option,isRest);
 		},
+		getRequest: function(url) {
+			return getRequest(url);
+		},
 		ajaxPageRequest:function(option){
 			ajaxPageRequest(option);
 		},
@@ -4202,6 +4569,12 @@ var futureDateRangePickers = function (container) {
 		},
 		getCurrentToken : function(){
 			return currentToken;
+		},
+		setTabLabelsFlag : function(flag){
+			tabLabelsFlag = flag;
+		},
+		getTabLabelsFlag : function(){
+			return tabLabelsFlag;
 		},
 		handleFormStatic:function(container){
 			handleFormStatic(container);
@@ -4251,6 +4624,9 @@ var futureDateRangePickers = function (container) {
 		showPageBar:function(bars){
 			showPageBar(bars);
 		},
+		addPageBar:function(bar){
+			addPageBar(bar);
+		},
 		setElementsReadOnly:function(selector,filterFunction){
 			setElementsReadOnly(selector,filterFunction);
 		},
@@ -4297,14 +4673,17 @@ var futureDateRangePickers = function (container) {
 		getCommonData:function(){
 			return commonDataMap;
 		},
+		openModal:function(container){
+			openModal(container);
+		},
 		initTree:function(treeObj,option){
 			initTree(treeObj,option);
 		},
 		getDmsFuncIdUrl:function(url){
 			return getDmsFuncIdUrl(url,currentToken);
 		},
-		getMomorySearchData:function(){
-			return $('#dmsPageContent').data("memorySearchData");
+		getMomorySearchData:function(container){
+			return container.data("memorySearchData");
 		},
 		autoInitSearchCondition:function(container){
 			autoInitSearchCondition(container);
@@ -4323,6 +4702,9 @@ var futureDateRangePickers = function (container) {
 		},
 		i18n:function(text){
 			return i18n(text);
+		},
+		handelAllFile:function(container){
+			return handelAllFile(container);
 		}
 	};
 
@@ -4440,7 +4822,8 @@ var futureDateRangePickers = function (container) {
 	//绑定dmsTable 获取对象方式
 	$.fn.validateElement = function() {
 		var el = this;
-		return $(el).closest("form").validate().element(el);
+//		return $(el).closest("form").validate().element(el);
+		return true;
 	};
 	
 	/**
