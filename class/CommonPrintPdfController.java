@@ -1,6 +1,6 @@
 
 /** 
-*Copyright 2016 Yonyou Corporation Ltd. All Rights Reserved.
+*Copyright 2016  Corporation Ltd. All Rights Reserved.
 * This software is published under the terms of the Yonyou Software
 * License version 1.0, a copy of which has been included with this
 * distribution in the LICENSE.txt file.
@@ -24,24 +24,22 @@
 */
 package com.dms.web.controller.basedata;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import org.apache.commons.codec.binary.Base64;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import com.dms.framework.DAO.DAOUtil;
-import com.dms.framework.domain.LoginInfoDto;
-import com.dms.framework.util.bean.AppliactionContextHelper;
+import com.dms.framework.util.FrameworkUtil;
 import com.dms.framework.util.http.FrameHttpUtil;
 import com.dms.function.exception.UtilException;
 import com.dms.function.utils.jsonSerializer.JSONUtil;
-import com.dms.manage.domains.PO.basedata.OrgPo;
 import com.f4.mvc.annotation.TxnConn;
 import com.f4.mvc.controller.BaseController;
 import com.itextpdf.text.BaseColor;
@@ -49,13 +47,13 @@ import com.itextpdf.text.Document;
 import com.itextpdf.text.DocumentException;
 import com.itextpdf.text.Element;
 import com.itextpdf.text.Font;
+import com.itextpdf.text.Image;
 import com.itextpdf.text.PageSize;
 import com.itextpdf.text.Phrase;
 import com.itextpdf.text.Rectangle;
 import com.itextpdf.text.pdf.BaseFont;
 import com.itextpdf.text.pdf.PdfPCell;
 import com.itextpdf.text.pdf.PdfPTable;
-import com.itextpdf.text.pdf.PdfPageEventHelper;
 import com.itextpdf.text.pdf.PdfWriter;
 
 @Controller
@@ -84,7 +82,7 @@ public class CommonPrintPdfController extends BaseController{
 
 	public void drawSpecialorderPdf(Map<String,Object> drawParam,HttpServletRequest request,HttpServletResponse response) throws DocumentException,IOException{
 		Map<String,Object> data=JSONUtil.jsonToMap((String) drawParam.get("data"));
-		String fileName=(String) data.get("name");
+		String fileName=(String) data.get("name"),fontName=(String) data.get("fontName");
 		try{
 			FrameHttpUtil.setExportFileName(request,response,fileName+".pdf");
 		}catch(Exception e){
@@ -97,26 +95,49 @@ public class CommonPrintPdfController extends BaseController{
 		rect.setBorderColor(BaseColor.BLACK);
 		writer.setBoxSize("art",rect);
 
-		BaseFont bfChinese=BaseFont.createFont("STSongStd-Light", "UniGB-UCS2-H", BaseFont.NOT_EMBEDDED);
+		BaseFont bfChinese;
+		String rootDir=request.getSession().getServletContext().getRealPath("/");
+		if (!rootDir.endsWith(File.separator)) { rootDir =rootDir + java.io.File.separator; }
+		try{
+			fontName=rootDir+"assets"+File.separator+"fonts"+File.separator+fontName;
+			bfChinese=BaseFont.createFont(fontName,BaseFont.IDENTITY_H,BaseFont.NOT_EMBEDDED);
+		}catch(Exception e){
+			bfChinese=BaseFont.createFont("STSongStd-Light","UniGB-UCS2-H",BaseFont.NOT_EMBEDDED);
+		}
 		Font codeFont=new Font(bfChinese,12,Font.NORMAL);
 		Font mianFont=new Font(bfChinese,17,Font.NORMAL);
 		Font tableFont=new Font(bfChinese,10,Font.NORMAL);
-		
+		Image img = Image.getInstance(rootDir+"assets/pages/img/logon_sx.png");  
+    img.setAlignment(Image.BOTTOM);  
+    img.setBorderColor(BaseColor.WHITE);  
+    img.scaleToFit(150, 50);// 大小  
+
 		document.open();
-		// 主框架表
+		PdfPTable header=new PdfPTable(3);
+		 PdfPCell imgCell=new PdfPCell(img);  
+		 imgCell.setBorder(Rectangle.NO_BORDER);// 无边框  
+		 imgCell.setBorderWidth(0);// 无边框  
+		header.addCell(imgCell);
+		header.addCell(createCell(fileName,mianFont,Element.ALIGN_CENTER,0,0f,1,null));
+		header.addCell(createCell("打印人："+FrameworkUtil.getLoginInfo().getUserName(),tableFont,Element.ALIGN_RIGHT,0,0f,1,null));
+		header.getDefaultCell().setBorder(PdfPCell.NO_BORDER);
 		PdfPTable table=new PdfPTable(1);
+		// 主框架表
+		table.getDefaultCell().setBorder(PdfPCell.NO_BORDER);
 		table.setWidthPercentage(100);
 		table.setHorizontalAlignment(Element.ALIGN_CENTER);
-		table.addCell(createCell(fileName,mianFont,Element.ALIGN_CENTER,0,40f,1,null));
+		table.addCell(header);
 		List type=(List) data.get("type"),panel=(List) data.get("panel"),rows=(List) data.get("rows");
-		for(int i=0;i<type.size();i++){
+		for(int i=0,n=type.size();i<n;i++){
 			Integer flag=(Integer) type.get(i);
 			Map panelData=(Map) rows.get(i);
 			List dataList=(List) panelData.get("list");
 			List<String> namelist=(List) panelData.get("name");
-			table.addCell(createCell(panel.get(i),codeFont,Element.ALIGN_LEFT,0,20f,1,BaseColor.LIGHT_GRAY));
+			if(!panel.get(i).equals("信息"))
+				table.addCell(createCell(panel.get(i),codeFont,Element.ALIGN_LEFT,0,20f,1,BaseColor.LIGHT_GRAY));
 			table.addCell(returnTable(tableFont,dataList,namelist,flag));
-			table.addCell(createCell(null,tableFont,Element.ALIGN_CENTER,0,0f,6,null));
+			if(!panel.get(i<n-1 ? i+1:i).equals("信息"))
+				table.addCell(createCell(null,tableFont,Element.ALIGN_CENTER,0,0f,6,null));
 		}
 
 		document.add(table);
@@ -126,13 +147,18 @@ public class CommonPrintPdfController extends BaseController{
 	private PdfPTable returnTable(Font tableFont,List data,List<String> namelist,int flag){
 		PdfPTable table=null;
 		int n=namelist.size(),total=0;
-		if(n==0)return null;
+		if(n==0)
+			return null;
 		if(flag==0){
 			table=new PdfPTable(new float[]{4,6,4,6,4,6});
 			for(int i=0,sp=1;i<n;i++){
 				String name=namelist.get(i);
 				Map dataMap=(Map) data.get(0);
 				String value=(String) dataMap.get(name);
+				if("".equals(name)||n==1){
+					table.addCell(createCell(name+" "+value,tableFont,Element.ALIGN_RIGHT,0,0f,6,null));
+					continue;
+				}
 				if(value.length()>50){
 					sp=5;
 					if(total!=0)
@@ -143,7 +169,7 @@ public class CommonPrintPdfController extends BaseController{
 				total+=1+sp;
 				if(total==6)
 					total=0;
-				table.addCell(createCell(name+"：",tableFont,Element.ALIGN_LEFT,0,0f,1,null));
+				table.addCell(createCell(name,tableFont,Element.ALIGN_LEFT,0,0f,1,null));
 				table.addCell(createCell(value,tableFont,Element.ALIGN_LEFT,0,0f,sp,null));
 			}
 			for(int i=0;i<6-total;i++)
