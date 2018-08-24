@@ -261,18 +261,21 @@
 		$("#go8").on("click", function(){
 			var src=$("#textSour").val(),lastIndex=src.indexOf("</form>");
 			var item=lastIndex==-1?src:src.substr(0,lastIndex),SQL='SELECT  ';
-			$(item).appendTo("#temCon");debugger;
-			var template='{field:"123",title:"456"',dictTp=",codeFormat:{type:'dict', codeType:'789'}}";
+			$(item).appendTo("#temCon");
+			var template='{field:"123",title:"456"',dictTp=",codeFormat:{type:'dict', codeType:'789'}}",dateFt=',dateFormat:{format:"yyyy"}}';
 				$("#temCon .form-group").each(function(i,item){
 					var title=$.trim($('label:first',item).text());
-					var $input=$(':input:not([type=hidden])',item);
+					var $input=$(':input:not([type=hidden]):first',item);
 					var field=$.trim($input.data("fieldname")).toUpperCase(),dict=$input.data("dictcode");
-					let t1=template,t2=dictTp;
+					var pclass=$input.parent().attr("class");
+					pclass=/date/.test(pclass)?/datetime/.test(pclass)?"YYYY-MM-DD HH:mm:ss":"YYYY-MM-DD":"";
+					let t1=template,t2=dictTp,t3=dateFt;
 					t1=t1.replace('123',field);
 					t1=t1.replace('456',title);
-					t2=dict?t2.replace('789',dict):"}";
+					t2=dict?t2.replace('789',dict):"";
+					t3=pclass?t3.replace("yyyy",pclass):"";
 					SQL+="A."+field+",";
-					target.val(function(i,o){return o+t1+t2+",\n";});
+					target.val(function(i,o){return o+t1+t2+t3+"},\n";});
 				});
 			SQL=SQL.substr(0,SQL.length-1)+"\nFROM A";
 			$("#textSour").val(SQL);
