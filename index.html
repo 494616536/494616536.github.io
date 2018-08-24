@@ -262,7 +262,7 @@
 			var src=$("#textSour").val(),lastIndex=src.indexOf("</form>");
 			var item=lastIndex==-1?src:src.substr(0,lastIndex),SQL='SELECT  ';
 			$(item).appendTo("#temCon");
-			var template='{field:"123",title:"456"',dictTp=",codeFormat:{type:'dict', codeType:'789'}}",dateFt=',dateFormat:{format:"yyyy"}}';
+			var template='{field:"123",title:"456"',dictTp=",codeFormat:{type:'dict', codeType:'789'}",dateFt=',dateFormat:{format:"yyyy"}';
 				$("#temCon .form-group").each(function(i,item){
 					var title=$.trim($('label:first',item).text());
 					var $input=$(':input:not([type=hidden]):first',item);
