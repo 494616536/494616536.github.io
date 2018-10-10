@@ -29,13 +29,14 @@
 			</div>
 			<div class="btn-group">
 				<button class="btn btn-default" id="compare" data-toggle="tooltip" title="下面的值在上面比对字段">比对字段</button>
-				<button class="btn btn-default" id="go2" data-toggle="tooltip" title="用字段逐个替换下面的内容中的正则,下面没有内容就是上面的逐个删除">逐个替换</button>
-				<button class="btn btn-default" id="go3" data-toggle="tooltip" title="清除下面内容">清除</button>
-				<button class="btn btn-default" id="go4" data-toggle="tooltip" title="把字段格式化方便替换">替换字段中的空字符</button>
-				<button class="btn btn-default" id="go5" data-toggle="tooltip" title="提取field和title生成excel导出">生成excel导出</button>
-				<button class="btn btn-default" id="go6" data-toggle="tooltip" title="sql格式化">appendSQL</button>
-				<button class="btn btn-default" id="go7" data-toggle="tooltip" title="根据页面生成setPO">生成setPO</button>
-				<button class="btn btn-default" id="go8" data-toggle="tooltip" title="根据页面生成导出明细">生成导出明细</button>
+				<button class="btn btn-default" id="1To1" data-toggle="tooltip" title="用字段逐个替换下面的内容中的正则,下面没有内容就是上面的逐个删除">逐个替换</button>
+				<button class="btn btn-default" id="empty" data-toggle="tooltip" title="清除下面内容">清除</button>
+				<button class="btn btn-default" id="space" data-toggle="tooltip" title="把字段格式化方便替换">替换字段中的空字符</button>
+				<button class="btn btn-default" id="export" data-toggle="tooltip" title="提取field和title生成excel导出">生成excel导出</button>
+				<button class="btn btn-default" id="apSql" data-toggle="tooltip" title="sql格式化">appendSQL</button>
+				<button class="btn btn-default" id="setPo" data-toggle="tooltip" title="根据页面生成setPO">生成setPO</button>
+				<button class="btn btn-default" id="detail" data-toggle="tooltip" title="根据页面生成导出明细">生成导出明细</button>
+				<button class="btn btn-default" id="condition" data-toggle="tooltip" title="根据页面生成sql查询条件代码">生成查询代码</button>
 			</div>
 			<div>
 				<textarea id="result" class="form-control" style="height: 300px"></textarea>
@@ -89,7 +90,7 @@
         }
     }
 		$("#go").on("click", function(){
-			$("#go4").click();
+			$("#space").click();
 			var arr=$("#word").val().split(/(,|，)/);
 			var patt = new RegExp($("#reg").val(),"g");
 			var target=$("#result");
@@ -104,7 +105,7 @@
 				});
 			selectText("result");
 		});
-		$("#go2").on("click", function() {
+		$("#1To1").on("click", function() {
 			var patt = new RegExp($("#reg").val());
 			var arr=$("#word").val().split(/(,|，)/);
 			var target=$("#result");
@@ -119,10 +120,10 @@
 			});
 			selectText("result");
 		});
-		$("#go3").on("click", function() {
+		$("#empty").on("click", function() {
 			$("#result").val("");
 		});
-		$("#go4").on("click", function() {
+		$("#space").on("click", function() {
 			$("#word").val(function(i,o){
 			var str=o.replace(/\s+|、|\|/g,",");
 			if($("#reg").val()!=""&&confirm("再次替换自定义正则？"))str=str.replace(new RegExp($("#reg").val(),"g"),",");
@@ -131,7 +132,7 @@
 			return str.substr(0,str.length-1);}
 			else return str;});
 		});
-		$("#go5").on("click", function(){
+		$("#export").on("click", function(){
 			let src=$("#textSour").val(),index=src.indexOf('<script');
 			if(index!=-1)src=src.substr(index);
 // 			src=src.match(/{[\s\S]+?}/g);
@@ -158,12 +159,12 @@
 			selectText("result");
 			
 		});
-		$("#go6").on("click", function() {
+		$("#apSql").on("click", function() {
 			function append(arr){
 				var res='';
 				for(let str of arr){
 					console.log(str+"\n"+str.length);
-					res+='query.append("';
+					res+='sqlSb.append("';
 					if(str)res+=str+'\\n");\n';
 				}
 				return res;
@@ -225,7 +226,7 @@
 			target.val(end.join('\n'));
 			$('button[data-dismiss]').click();
 		});
-		$("#go7").on("click", function(){
+		$("#setPo").on("click", function(){
 			var src=$("#textSour").val(),lastIndex=src.indexOf("</form>");
 			if(/^SELECT/.test(src)){
 				var patt=/A.(\w+)[,\n]/g,item,arr=[],del={},res={};
@@ -258,7 +259,7 @@
 			}
 			selectText("result");
 		});
-		$("#go8").on("click", function(){
+		$("#detail").on("click", function(){
 			var src=$("#textSour").val(),lastIndex=src.indexOf("</form>");
 			var item=lastIndex==-1?src:src.substr(0,lastIndex),SQL='SELECT  ';
 			$(item).appendTo("#temCon");
@@ -278,6 +279,40 @@
 					target.val(function(i,o){return o+t1+t2+t3+"},\n";});
 				});
 			SQL=SQL.substr(0,SQL.length-1)+"\nFROM A";
+			$("#textSour").val(SQL);
+			$("#temCon").empty();
+			selectText("result");
+		});
+		
+		
+		$("#condition").on("click", function(){
+			var src=$("#textSour").val(),lastIndex=src.indexOf("</form>");
+			var item=lastIndex==-1?src:src.substr(0,lastIndex);
+			$(item).appendTo("#temCon");
+			var SQL='',tstr='',allTitle='';
+			var args='';
+			var tp='//zpf\nif(!StringUtils.isNullOrEmpty(queryParam.get("roId"))){\nsqlSb.append(" AND A.RO_ID = ? \\n");\nparams.add(queryParam.get("roId"));\n}\n';
+			var likeTp='//zpf\nif(!StringUtils.isNullOrEmpty(queryParam.get("roId"))){\nsqlSb.append(" AND A.RO_ID like ? \\n");\nparams.add("%"+queryParam.get("roId")+"%");\n}\n';
+			var dateFrom='//zpf\nif(!StringUtils.isNullOrEmpty(queryParam.get("roId"))){\nsqlSb.append(" AND A.RO_ID >= ? \\n");\nparams.add(queryParam.get("roId"));\n}\n';
+			var dateTo='//zpf\nif(!StringUtils.isNullOrEmpty(queryParam.get("roId"))){\nsqlSb.append(" AND A.RO_ID < ? \\n");\nparams.add(DateUtil.addOneDay(queryParam.get("roId")));\n}\n';
+				$("#temCon .form-group").each(function(i,item){
+					var title=$.trim($('label:first',item).text());
+					var inputs=$(':input:not([type=hidden],button)',item);
+					inputs.each(function(i,v){
+					allTitle+=title;
+					var $input=$(v),field=$.trim($input.attr("name")),dict=$input.data("dictcode");
+					var uField=/_/.test(field)?field.toUpperCase():field.replace(/[A-Z]/g,'_$&').toUpperCase();
+					var isDate=/date/.test($input.parent().attr("class"));
+					let t1=dict?tp:isDate?allTitle.match(new RegExp(title,'g')).length>1?dateTo:dateFrom:likeTp;
+					t1=t1.replace('zpf',title);
+					t1=t1.replace(/roId/g,field);
+					t1=t1.replace(/RO_ID/g,isDate?uField.replace(/_FROM|_TO/,''):uField);
+					SQL+="\nA."+uField+",";
+					tstr+=t1;
+					});
+				});
+			target.val(function(i,o){return o+tstr;});
+			SQL=SQL.substr(0,SQL.length-1);
 			$("#textSour").val(SQL);
 			$("#temCon").empty();
 			selectText("result");
